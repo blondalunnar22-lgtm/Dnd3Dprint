@@ -1,38 +1,288 @@
-<script type="module">
-import * as THREE from "three";
-import { OrbitControls } from "three/addons/controls/OrbitControls.js";
-import { STLExporter } from "three/addons/exporters/STLExporter.js";
-import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>D&D STL Generator (Tiles + Walls Connectors v2.2)</title>
 
-/* ==========================
-   Safety + diagnostics
-========================== */
+  <style>
+    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;background:#0b0d12;color:#e9eefc}
+    .wrap{display:grid;grid-template-columns:420px 1fr;gap:12px;min-height:100vh;padding:12px;box-sizing:border-box}
+    .card{background:#121726;border:1px solid #222a40;border-radius:14px;padding:12px}
+    h1{font-size:16px;margin:0 0 8px}
+    label{display:block;font-size:12px;opacity:.9;margin:10px 0 6px}
+    select,input,button{width:100%;box-sizing:border-box;padding:10px 12px;border-radius:10px;border:1px solid #2a3558;background:#0f1422;color:#e9eefc}
+    button{cursor:pointer;border:1px solid #3a4a7a;background:#1a2340;font-weight:800;margin-top:10px}
+    button:hover{filter:brightness(1.08)}
+    button:disabled{opacity:.55;cursor:not-allowed}
+    .row{display:flex;gap:10px}
+    .row>*{flex:1}
+    .muted{opacity:.85;font-size:12px;line-height:1.35}
+    #view{height:calc(100vh - 24px); position:relative; overflow:hidden}
+    #status{white-space:pre-wrap; background:#0f1422; border:1px solid #2a3558; padding:10px; border-radius:12px; color:#cfe2ff; font-size:12px; margin-top:10px}
+    details summary{cursor:pointer;font-weight:800;margin-top:10px}
+    .pill{display:inline-block;border:1px solid #2a3558;border-radius:999px;padding:2px 8px;font-size:12px;margin-right:6px;margin-top:6px;opacity:.95}
+    .small{font-size:11px; opacity:.9}
+    @media (max-width: 980px){ .wrap{grid-template-columns:1fr} #view{height:60vh} }
+
+    /* Fatal error overlay */
+    #fatal {
+      display:none;
+      position:fixed;
+      inset:0;
+      background:rgba(0,0,0,.86);
+      color:#fff;
+      padding:18px;
+      z-index:9999;
+      overflow:auto;
+      font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      white-space:pre-wrap;
+    }
+    #fatal .box{
+      max-width:980px;
+      margin:20px auto;
+      background:#0f1422;
+      border:1px solid #2a3558;
+      border-radius:14px;
+      padding:14px;
+    }
+    #fatal .title{font-weight:800;margin-bottom:10px}
+    #fatal .hint{opacity:.9;margin-top:10px;font-family:system-ui}
+  </style>
+</head>
+
+<body>
+<div id="fatal">
+  <div class="box">
+    <div class="title">❌ App crashed while loading</div>
+    <div id="fatalMsg"></div>
+    <div class="hint">
+      Tip: If you’re on mobile and “slots” are enabled, try Pegs/None, or use desktop Chrome/Edge.
+      Also try disabling adblock for unpkg.com.
+    </div>
+  </div>
+</div>
+
+<div class="wrap">
+  <div class="card">
+    <h1>D&D STL Generator</h1>
+    <div class="muted">
+      <span class="pill">25mm grid</span>
+      <span class="pill">Tile-edge connectors</span>
+      <span class="pill">Wall-foot connectors</span>
+      <div class="small">Start: tolerance 0.25mm. Tight → 0.35. Loose → 0.15.</div>
+    </div>
+    <div id="status">Loading…</div>
+
+    <label>Preset</label>
+    <select id="preset">
+      <option value="custom" selected>Custom</option>
+      <option value="tile_1">Tile 1x1 (25mm) • 3mm</option>
+      <option value="tile_2">Tile 2x2 (50mm) • 3mm</option>
+      <option value="wall_2">Straight Wall 2" (50mm) • 35mm tall</option>
+      <option value="wall_corner">Corner Wall 2" (50mm) • 35mm tall</option>
+      <option value="doorway">Doorway Wall 2" (50mm) • 35mm tall</option>
+    </select>
+
+    <label>Model</label>
+    <select id="model">
+      <option value="tile" selected>Dungeon Tile</option>
+      <option value="wall_straight">Straight Wall</option>
+      <option value="wall_corner">Corner Wall (L)</option>
+      <option value="doorway">Doorway Wall</option>
+    </select>
+
+    <div class="row">
+      <div>
+        <label>Grid size (mm)</label>
+        <select id="grid">
+          <option value="25" selected>25 (1")</option>
+        </select>
+      </div>
+      <div>
+        <label>Snap to grid</label>
+        <select id="snap">
+          <option value="on" selected>On</option>
+          <option value="off">Off</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="row">
+      <div>
+        <label>Width (mm)</label>
+        <input id="w" type="number" min="5" max="400" value="50">
+      </div>
+      <div>
+        <label>Depth (mm)</label>
+        <input id="d" type="number" min="5" max="400" value="50">
+      </div>
+    </div>
+
+    <div class="row">
+      <div>
+        <label>Height (mm)</label>
+        <input id="h" type="number" min="1" max="400" value="35">
+      </div>
+      <div>
+        <label>Wall thickness (mm)</label>
+        <input id="wallT" type="number" min="4" max="20" value="8">
+      </div>
+    </div>
+
+    <details open>
+      <summary>Connector settings (tiles + walls)</summary>
+
+      <div class="row" style="margin-top:8px">
+        <div>
+          <label>Apply connectors to</label>
+          <select id="applyTo">
+            <option value="tile" selected>Tile edges</option>
+            <option value="wall">Wall feet</option>
+            <option value="both">Both</option>
+          </select>
+        </div>
+        <div>
+          <label>Connector mode</label>
+          <select id="connMode">
+            <option value="none" selected>None</option>
+            <option value="slots">Slots (female cutouts)</option>
+            <option value="pegs">Pegs (male)</option>
+            <option value="both">Both</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="row">
+        <div>
+          <label>Tolerance (mm)</label>
+          <input id="tol" type="number" min="0" max="1.0" step="0.05" value="0.25">
+        </div>
+        <div>
+          <label>Connector size</label>
+          <select id="connSize">
+            <option value="std" selected>Standard</option>
+            <option value="tight">Tight</option>
+            <option value="loose">Loose</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="row">
+        <div>
+          <label>Tile edges</label>
+          <select id="tileEdges">
+            <option value="all" selected>All (N,E,S,W)</option>
+            <option value="ns">North+South</option>
+            <option value="ew">East+West</option>
+            <option value="n">North only</option>
+            <option value="e">East only</option>
+            <option value="s">South only</option>
+            <option value="w">West only</option>
+          </select>
+        </div>
+        <div>
+          <label>Wall feet</label>
+          <select id="wallFeet">
+            <option value="both" selected>Both feet</option>
+            <option value="left">Left foot only</option>
+            <option value="right">Right foot only</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="row">
+        <div>
+          <label>Inset from edge (mm)</label>
+          <input id="inset" type="number" min="0" max="10" step="0.1" value="1.0">
+        </div>
+        <div>
+          <label>Depth into piece (mm)</label>
+          <input id="slotDepth" type="number" min="2" max="20" step="0.1" value="6.0">
+        </div>
+      </div>
+
+      <div class="row">
+        <div>
+          <label>Foot length (mm)</label>
+          <input id="footL" type="number" min="6" max="30" step="0.5" value="14">
+        </div>
+        <div>
+          <label>Foot height (mm)</label>
+          <input id="footH" type="number" min="2" max="12" step="0.5" value="6">
+        </div>
+      </div>
+
+      <div class="muted small">
+        Wall feet add a small base under the wall so the connectors have material to cut into.
+        Print feet flat on bed.
+      </div>
+    </details>
+
+    <details>
+      <summary>Tile options</summary>
+      <div class="row" style="margin-top:8px">
+        <div>
+          <label>Tile thickness (mm)</label>
+          <input id="tileT" type="number" min="2" max="12" value="3">
+        </div>
+        <div>
+          <label>Emboss grid</label>
+          <select id="emboss">
+            <option value="off" selected>Off</option>
+            <option value="on">On</option>
+          </select>
+        </div>
+      </div>
+    </details>
+
+    <button id="gen">Generate</button>
+    <button id="export">Export STL</button>
+  </div>
+
+  <div class="card" id="view"></div>
+</div>
+
+<script type="module">
+/* =========================================================
+   FIXED IMPORTS (no importmap) — reliable on GitHub Pages
+========================================================= */
+import * as THREE from "https://unpkg.com/three@0.160.0/build/three.module.js";
+import { OrbitControls } from "https://unpkg.com/three@0.160.0/examples/jsm/controls/OrbitControls.js";
+import { STLExporter } from "https://unpkg.com/three@0.160.0/examples/jsm/exporters/STLExporter.js";
+import { mergeGeometries } from "https://unpkg.com/three@0.160.0/examples/jsm/utils/BufferGeometryUtils.js";
+
+/* =========================================================
+   Diagnostics + crash overlay
+========================================================= */
 const status = document.getElementById("status");
 const log = (m) => status.textContent = m;
 
-window.addEventListener("error", (e) => {
-  console.error(e.error || e.message);
-  const msg = e.error?.stack || e.message || String(e);
-  log("❌ JS ERROR:\n" + msg);
-});
+const fatal = document.getElementById("fatal");
+const fatalMsg = document.getElementById("fatalMsg");
 
-window.addEventListener("unhandledrejection", (e) => {
-  console.error(e.reason);
-  const msg = e.reason?.stack || e.reason?.message || String(e.reason);
-  log("❌ PROMISE ERROR:\n" + msg);
-});
+function showFatal(err){
+  const msg = (err?.stack || err?.message || String(err));
+  console.error(err);
+  fatalMsg.textContent = msg;
+  fatal.style.display = "block";
+  log("❌ Fatal error (see overlay)");
+}
+
+window.addEventListener("error", (e) => showFatal(e.error || e.message));
+window.addEventListener("unhandledrejection", (e) => showFatal(e.reason));
 
 let BUSY = false;
-function setBusy(on, msg){
+function setBusy(on, message){
   BUSY = on;
   document.getElementById("gen").disabled = on;
   document.getElementById("export").disabled = on;
-  if (msg) log(msg);
+  if (message) log(message);
 }
 
-/* ==========================
-   Optional CSG (slots)
-========================== */
+/* =========================================================
+   Optional CSG (Slots). App still runs if this fails.
+========================================================= */
 let Brush, Evaluator, SUBTRACTION;
 let CSG_OK = false;
 
@@ -48,9 +298,9 @@ async function loadCSG(){
 }
 await loadCSG();
 
-/* ==========================
+/* =========================================================
    Scene setup
-========================== */
+========================================================= */
 const view = document.getElementById("view");
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x0b0d12);
@@ -63,6 +313,7 @@ renderer.setPixelRatio(devicePixelRatio);
 view.appendChild(renderer.domElement);
 
 const controls = new OrbitControls(camera, renderer.domElement);
+controls.enable_damping = true; // harmless typo guard
 controls.enableDamping = true;
 
 scene.add(new THREE.AmbientLight(0xffffff, 0.65));
@@ -89,9 +340,7 @@ function safeMerge(list){
 }
 
 function csgSubtract(baseGeo, cutters){
-  // If CSG isn’t available, just return base geometry (peg-only still works)
   if (!CSG_OK || !cutters.length) return baseGeo;
-
   const evalr = new Evaluator();
   let result = new Brush(baseGeo);
   for (const cutGeo of cutters){
@@ -102,9 +351,9 @@ function csgSubtract(baseGeo, cutters){
   return g;
 }
 
-/* ==========================
-   Connector helpers
-========================== */
+/* =========================================================
+   Connectors
+========================================================= */
 function connectorProfile(sizeMode, tol){
   let w = 12.0, h = 4.0;
   if (sizeMode === "tight"){ w = 11.5; h = 3.8; }
@@ -116,7 +365,6 @@ function connectorProfile(sizeMode, tol){
     pegH: h - tol*1.5
   };
 }
-
 function tileEdgeList(val){
   if (val === "all") return ["n","e","s","w"];
   if (val === "ns") return ["n","s"];
@@ -128,9 +376,9 @@ function wallFootList(val){
   return [val];
 }
 
-/* ==========================
+/* =========================================================
    Tile builder
-========================== */
+========================================================= */
 function buildTile({w,d,thickness,emboss,grid,conn}){
   const slab = new THREE.BoxGeometry(w, thickness, d);
   slab.translate(0, thickness/2, 0);
@@ -158,11 +406,12 @@ function buildTile({w,d,thickness,emboss,grid,conn}){
     const edges = tileEdgeList(conn.tileEdges);
     const y = thickness*0.5;
 
+    // Safety clamp: avoid cutting a slot taller than the tile
+    const slotH = Math.min(prof.slotH, thickness * 0.85);
+
     for (const e of edges){
-      if ((conn.mode === "slots" || conn.mode === "both") && !CSG_OK){
-        // If user requests slots but CSG isn't available, ignore slot cuts
-      } else if (conn.mode === "slots" || conn.mode === "both"){
-        const slot = new THREE.BoxGeometry(prof.slotW, prof.slotH, conn.slotDepth);
+      if ((conn.mode === "slots" || conn.mode === "both") && CSG_OK){
+        const slot = new THREE.BoxGeometry(prof.slotW, slotH, conn.slotDepth);
         if (e === "n") slot.translate(0, y, -d/2 + conn.inset + conn.slotDepth/2);
         if (e === "s") slot.translate(0, y,  d/2 - conn.inset - conn.slotDepth/2);
         if (e === "e"){ slot.rotateY(Math.PI/2); slot.translate( w/2 - conn.inset - conn.slotDepth/2, y, 0); }
@@ -172,7 +421,7 @@ function buildTile({w,d,thickness,emboss,grid,conn}){
 
       if (conn.mode === "pegs" || conn.mode === "both"){
         const pegDepth = conn.slotDepth * 0.7;
-        const peg = new THREE.BoxGeometry(prof.pegW, prof.pegH, pegDepth);
+        const peg = new THREE.BoxGeometry(prof.pegW, Math.min(prof.pegH, thickness*0.85), pegDepth);
         if (e === "n") peg.translate(0, y, -d/2 - pegDepth/2 + 0.01);
         if (e === "s") peg.translate(0, y,  d/2 + pegDepth/2 - 0.01);
         if (e === "e"){ peg.rotateY(Math.PI/2); peg.translate( w/2 + pegDepth/2 - 0.01, y, 0); }
@@ -188,10 +437,9 @@ function buildTile({w,d,thickness,emboss,grid,conn}){
   return geo;
 }
 
-/* ==========================
-   Feet connectors (FIXED for corner)
-   Accepts points: [{x,z}, ...]
-========================== */
+/* =========================================================
+   Foot connectors — uses points [{x,z}, ...]
+========================================================= */
 function applyFootConnectorsXZ(baseGeo, footPoints, footW, footH, conn){
   if (conn.mode === "none") return baseGeo;
 
@@ -226,9 +474,9 @@ function applyFootConnectorsXZ(baseGeo, footPoints, footW, footH, conn){
   return g;
 }
 
-/* ==========================
+/* =========================================================
    Walls
-========================== */
+========================================================= */
 function buildWallStraight({len, thick, height, feet, conn, apply}){
   const wall = new THREE.BoxGeometry(len, height, thick);
   wall.translate(0, feet.footH + height/2, 0);
@@ -266,10 +514,9 @@ function buildWallCorner({len, thick, height, feet, conn, apply}){
 
   const footL = feet.footL, footH = feet.footH, footW = thick + 4;
 
-  // Feet: two on the "a" leg, one on the "b" leg
   const x1 = -len*0.25, x2 = 0;
-  const zA = (len/2 - thick/2);        // leg A feet sit here
-  const xB = (len/2 - thick/2), zB = -len*0.25; // leg B foot sits here
+  const zA = (len/2 - thick/2);
+  const xB = (len/2 - thick/2), zB = -len*0.25;
 
   const f1 = new THREE.BoxGeometry(footL, footH, footW);
   f1.translate(x1, footH/2, zA);
@@ -283,9 +530,8 @@ function buildWallCorner({len, thick, height, feet, conn, apply}){
   let baseGeo = safeMerge([a,b,f1,f2,f3]);
 
   if (apply){
-    const feetList = wallFootList(conn.wallFeet);
     const pts = [];
-    // map left/right to the two "a" leg feet, and include the corner foot when "both"
+    const feetList = wallFootList(conn.wallFeet);
     if (feetList.includes("left"))  pts.push({x:x1, z:zA});
     if (feetList.includes("right")) pts.push({x:x2, z:zA});
     if (conn.wallFeet === "both")   pts.push({x:xB, z:zB});
@@ -333,9 +579,9 @@ function buildDoorway({len, thick, height, feet, grid, conn, apply}){
   return baseGeo;
 }
 
-/* ==========================
-   View helpers
-========================== */
+/* =========================================================
+   Scene helpers
+========================================================= */
 function setMesh(geometry){
   if (currentMesh){
     scene.remove(currentMesh);
@@ -365,9 +611,17 @@ function resize(){
 }
 window.addEventListener("resize", resize);
 
-/* ==========================
+function regenerateGrid(){
+  scene.remove(gridHelper);
+  gridHelper.geometry.dispose();
+  gridHelper = new THREE.GridHelper(500, Math.floor(500 / GRID), 0x2a3558, 0x222a40);
+  gridHelper.position.y = -0.01;
+  scene.add(gridHelper);
+}
+
+/* =========================================================
    Presets + generate
-========================== */
+========================================================= */
 function applyPreset(){
   const p = document.getElementById("preset").value;
   const set = (id,val)=>document.getElementById(id).value = String(val);
@@ -400,14 +654,6 @@ function applyPreset(){
   }
 }
 
-function regenerateGrid(){
-  scene.remove(gridHelper);
-  gridHelper.geometry.dispose();
-  gridHelper = new THREE.GridHelper(500, Math.floor(500 / GRID), 0x2a3558, 0x222a40);
-  gridHelper.position.y = -0.01;
-  scene.add(gridHelper);
-}
-
 function generate(){
   const snap = document.getElementById("snap").value === "on";
   const model = document.getElementById("model").value;
@@ -437,9 +683,8 @@ function generate(){
     wallFeet: document.getElementById("wallFeet").value
   };
 
-  // If user requests slots but CSG isn't available, show a clear message
   if ((conn.mode === "slots" || conn.mode === "both") && !CSG_OK){
-    log("⚠️ CSG not available. Slot cutting disabled (pegs still work).");
+    log("⚠️ Slot cutting unavailable (CSG failed). Pegs still work.");
   }
 
   const feet = {
@@ -477,9 +722,9 @@ function generate(){
   setMesh(geo);
 }
 
-/* ==========================
-   Export
-========================== */
+/* =========================================================
+   Export STL
+========================================================= */
 function exportSTL(){
   if (!currentMesh) return alert("Generate a model first.");
 
@@ -501,9 +746,9 @@ function exportSTL(){
   URL.revokeObjectURL(a.href);
 }
 
-/* ==========================
-   Auto-save settings (QoL)
-========================== */
+/* =========================================================
+   Auto-save settings
+========================================================= */
 const SAVE_KEYS = ["preset","model","snap","w","d","h","wallT","applyTo","connMode","tol","connSize","tileEdges","wallFeet","inset","slotDepth","footL","footH","tileT","emboss"];
 function saveSettings(){
   const data = {};
@@ -528,18 +773,18 @@ for (const k of SAVE_KEYS){
 }
 loadSettings();
 
-/* ==========================
-   Wire up buttons (busy lock)
-========================== */
+/* =========================================================
+   Wire up UI (busy lock)
+========================================================= */
 async function runGenerateSafely(){
   if (BUSY) return;
   setBusy(true, "⏳ Generating…");
   try{
     generate();
-    log(CSG_OK ? "READY ✅ Generated" : "READY ✅ Generated (peg-only if slots requested)");
+    log(CSG_OK ? "READY ✅ Generated" : "READY ✅ Generated (slot cutting may be disabled)");
   }catch(e){
-    console.error(e);
     log("❌ ERROR:\n" + (e.stack || e.message || e));
+    console.error(e);
   }finally{
     setBusy(false);
   }
@@ -549,9 +794,12 @@ document.getElementById("preset").addEventListener("change", () => { applyPreset
 document.getElementById("gen").addEventListener("click", runGenerateSafely);
 document.getElementById("export").addEventListener("click", () => {
   try{ exportSTL(); }
-  catch(e){ console.error(e); log("❌ EXPORT ERROR:\n"+(e.stack||e.message||e)); }
+  catch(e){ log("❌ EXPORT ERROR:\n"+(e.stack||e.message||e)); console.error(e); }
 });
 
+/* =========================================================
+   Init + render loop
+========================================================= */
 function init(){
   resize();
   applyPreset();
@@ -565,3 +813,5 @@ init();
   renderer.render(scene, camera);
 })();
 </script>
+</body>
+</html>
