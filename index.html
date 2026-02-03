@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>D&D STL Generator (Tiles + Walls Connectors v2.2)</title>
+  <title>D&D STL Generator (Tiles + Walls Connectors v2.3)</title>
 
   <style>
     body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;background:#0b0d12;color:#e9eefc}
@@ -57,8 +57,7 @@
     <div class="title">❌ App crashed while loading</div>
     <div id="fatalMsg"></div>
     <div class="hint">
-      Tip: If you’re on mobile and “slots” are enabled, try Pegs/None, or use desktop Chrome/Edge.
-      Also try disabling adblock for unpkg.com.
+      Tip: If you use adblock, whitelist unpkg.com. If slots are enabled and CSG fails, use Pegs/None.
     </div>
   </div>
 </div>
@@ -244,23 +243,16 @@
 </div>
 
 <script type="module">
-/* =========================================================
-   FIXED IMPORTS (no importmap) — reliable on GitHub Pages
-========================================================= */
 import * as THREE from "https://unpkg.com/three@0.160.0/build/three.module.js";
 import { OrbitControls } from "https://unpkg.com/three@0.160.0/examples/jsm/controls/OrbitControls.js";
 import { STLExporter } from "https://unpkg.com/three@0.160.0/examples/jsm/exporters/STLExporter.js";
 import { mergeGeometries } from "https://unpkg.com/three@0.160.0/examples/jsm/utils/BufferGeometryUtils.js";
 
-/* =========================================================
-   Diagnostics + crash overlay
-========================================================= */
 const status = document.getElementById("status");
 const log = (m) => status.textContent = m;
 
 const fatal = document.getElementById("fatal");
 const fatalMsg = document.getElementById("fatalMsg");
-
 function showFatal(err){
   const msg = (err?.stack || err?.message || String(err));
   console.error(err);
@@ -268,7 +260,6 @@ function showFatal(err){
   fatal.style.display = "block";
   log("❌ Fatal error (see overlay)");
 }
-
 window.addEventListener("error", (e) => showFatal(e.error || e.message));
 window.addEventListener("unhandledrejection", (e) => showFatal(e.reason));
 
@@ -280,27 +271,36 @@ function setBusy(on, message){
   if (message) log(message);
 }
 
-/* =========================================================
-   Optional CSG (Slots). App still runs if this fails.
-========================================================= */
+/* ========= CSG (slots) — NON-BLOCKING + TIMEOUT ========= */
 let Brush, Evaluator, SUBTRACTION;
 let CSG_OK = false;
 
-async function loadCSG(){
+function withTimeout(promise, ms){
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error("CSG load timeout")), ms))
+  ]);
+}
+
+async function loadCSGInBackground(){
   try{
-    ({ Brush, Evaluator, SUBTRACTION } =
-      await import("https://unpkg.com/three-bvh-csg@0.0.16/build/index.module.js"));
+    const mod = await withTimeout(
+      import("https://unpkg.com/three-bvh-csg@0.0.16/build/index.module.js"),
+      3000
+    );
+    Brush = mod.Brush;
+    Evaluator = mod.Evaluator;
+    SUBTRACTION = mod.SUBTRACTION;
     CSG_OK = true;
+    log("✅ Ready (CSG loaded: slots enabled)");
   }catch(e){
-    console.warn("CSG load failed:", e);
+    console.warn("CSG unavailable:", e);
     CSG_OK = false;
+    log("✅ Ready (CSG unavailable: peg-only / no slots)");
   }
 }
-await loadCSG();
 
-/* =========================================================
-   Scene setup
-========================================================= */
+/* ========= Scene ========= */
 const view = document.getElementById("view");
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x0b0d12);
@@ -313,7 +313,6 @@ renderer.setPixelRatio(devicePixelRatio);
 view.appendChild(renderer.domElement);
 
 const controls = new OrbitControls(camera, renderer.domElement);
-controls.enable_damping = true; // harmless typo guard
 controls.enableDamping = true;
 
 scene.add(new THREE.AmbientLight(0xffffff, 0.65));
@@ -351,9 +350,6 @@ function csgSubtract(baseGeo, cutters){
   return g;
 }
 
-/* =========================================================
-   Connectors
-========================================================= */
 function connectorProfile(sizeMode, tol){
   let w = 12.0, h = 4.0;
   if (sizeMode === "tight"){ w = 11.5; h = 3.8; }
@@ -365,6 +361,7 @@ function connectorProfile(sizeMode, tol){
     pegH: h - tol*1.5
   };
 }
+
 function tileEdgeList(val){
   if (val === "all") return ["n","e","s","w"];
   if (val === "ns") return ["n","s"];
@@ -376,9 +373,7 @@ function wallFootList(val){
   return [val];
 }
 
-/* =========================================================
-   Tile builder
-========================================================= */
+/* ========= Tile builder ========= */
 function buildTile({w,d,thickness,emboss,grid,conn}){
   const slab = new THREE.BoxGeometry(w, thickness, d);
   slab.translate(0, thickness/2, 0);
@@ -405,8 +400,6 @@ function buildTile({w,d,thickness,emboss,grid,conn}){
     const prof = connectorProfile(conn.sizeMode, conn.tol);
     const edges = tileEdgeList(conn.tileEdges);
     const y = thickness*0.5;
-
-    // Safety clamp: avoid cutting a slot taller than the tile
     const slotH = Math.min(prof.slotH, thickness * 0.85);
 
     for (const e of edges){
@@ -437,9 +430,7 @@ function buildTile({w,d,thickness,emboss,grid,conn}){
   return geo;
 }
 
-/* =========================================================
-   Foot connectors — uses points [{x,z}, ...]
-========================================================= */
+/* ========= Foot connectors (x,z points) ========= */
 function applyFootConnectorsXZ(baseGeo, footPoints, footW, footH, conn){
   if (conn.mode === "none") return baseGeo;
 
@@ -474,9 +465,7 @@ function applyFootConnectorsXZ(baseGeo, footPoints, footW, footH, conn){
   return g;
 }
 
-/* =========================================================
-   Walls
-========================================================= */
+/* ========= Walls ========= */
 function buildWallStraight({len, thick, height, feet, conn, apply}){
   const wall = new THREE.BoxGeometry(len, height, thick);
   wall.translate(0, feet.footH + height/2, 0);
@@ -579,9 +568,7 @@ function buildDoorway({len, thick, height, feet, grid, conn, apply}){
   return baseGeo;
 }
 
-/* =========================================================
-   Scene helpers
-========================================================= */
+/* ========= Scene helpers ========= */
 function setMesh(geometry){
   if (currentMesh){
     scene.remove(currentMesh);
@@ -619,9 +606,7 @@ function regenerateGrid(){
   scene.add(gridHelper);
 }
 
-/* =========================================================
-   Presets + generate
-========================================================= */
+/* ========= Presets & generate ========= */
 function applyPreset(){
   const p = document.getElementById("preset").value;
   const set = (id,val)=>document.getElementById(id).value = String(val);
@@ -683,10 +668,6 @@ function generate(){
     wallFeet: document.getElementById("wallFeet").value
   };
 
-  if ((conn.mode === "slots" || conn.mode === "both") && !CSG_OK){
-    log("⚠️ Slot cutting unavailable (CSG failed). Pegs still work.");
-  }
-
   const feet = {
     footL: clamp(Number(document.getElementById("footL").value), 6, 30),
     footH: clamp(Number(document.getElementById("footH").value), 2, 12)
@@ -722,9 +703,7 @@ function generate(){
   setMesh(geo);
 }
 
-/* =========================================================
-   Export STL
-========================================================= */
+/* ========= Export ========= */
 function exportSTL(){
   if (!currentMesh) return alert("Generate a model first.");
 
@@ -746,9 +725,7 @@ function exportSTL(){
   URL.revokeObjectURL(a.href);
 }
 
-/* =========================================================
-   Auto-save settings
-========================================================= */
+/* ========= Autosave ========= */
 const SAVE_KEYS = ["preset","model","snap","w","d","h","wallT","applyTo","connMode","tol","connSize","tileEdges","wallFeet","inset","slotDepth","footL","footH","tileT","emboss"];
 function saveSettings(){
   const data = {};
@@ -773,15 +750,13 @@ for (const k of SAVE_KEYS){
 }
 loadSettings();
 
-/* =========================================================
-   Wire up UI (busy lock)
-========================================================= */
+/* ========= Buttons ========= */
 async function runGenerateSafely(){
   if (BUSY) return;
   setBusy(true, "⏳ Generating…");
   try{
     generate();
-    log(CSG_OK ? "READY ✅ Generated" : "READY ✅ Generated (slot cutting may be disabled)");
+    log("READY ✅ Generated");
   }catch(e){
     log("❌ ERROR:\n" + (e.stack || e.message || e));
     console.error(e);
@@ -797,14 +772,26 @@ document.getElementById("export").addEventListener("click", () => {
   catch(e){ log("❌ EXPORT ERROR:\n"+(e.stack||e.message||e)); console.error(e); }
 });
 
-/* =========================================================
-   Init + render loop
-========================================================= */
+/* ========= Init ========= */
 function init(){
-  resize();
+  const r = view.getBoundingClientRect();
+  renderer.setSize(r.width, r.height);
+  camera.aspect = r.width / r.height;
+  camera.updateProjectionMatrix();
+
   applyPreset();
   runGenerateSafely();
+
+  // start CSG load AFTER UI is alive
+  loadCSGInBackground();
 }
+window.addEventListener("resize", () => {
+  const r = view.getBoundingClientRect();
+  renderer.setSize(r.width, r.height);
+  camera.aspect = r.width / r.height;
+  camera.updateProjectionMatrix();
+});
+
 init();
 
 (function animate(){
