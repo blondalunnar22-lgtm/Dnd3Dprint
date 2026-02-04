@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>D&D STL Generator (Tiles + Walls Connectors v2.3)</title>
+  <title>D&D STL Generator (Tiles + Walls Connectors)</title>
 
   <style>
     body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;background:#0b0d12;color:#e9eefc}
@@ -25,30 +25,26 @@
     .small{font-size:11px; opacity:.9}
     @media (max-width: 980px){ .wrap{grid-template-columns:1fr} #view{height:60vh} }
 
-    /* Fatal error overlay */
     #fatal {
-      display:none;
-      position:fixed;
-      inset:0;
-      background:rgba(0,0,0,.86);
-      color:#fff;
-      padding:18px;
-      z-index:9999;
-      overflow:auto;
+      display:none; position:fixed; inset:0; background:rgba(0,0,0,.86);
+      color:#fff; padding:18px; z-index:9999; overflow:auto;
       font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
       white-space:pre-wrap;
     }
-    #fatal .box{
-      max-width:980px;
-      margin:20px auto;
-      background:#0f1422;
-      border:1px solid #2a3558;
-      border-radius:14px;
-      padding:14px;
-    }
+    #fatal .box{max-width:980px;margin:20px auto;background:#0f1422;border:1px solid #2a3558;border-radius:14px;padding:14px}
     #fatal .title{font-weight:800;margin-bottom:10px}
     #fatal .hint{opacity:.9;margin-top:10px;font-family:system-ui}
   </style>
+
+  <!-- ✅ IMPORT MAP IS REQUIRED because three/examples modules import from "three" -->
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+    }
+  }
+  </script>
 </head>
 
 <body>
@@ -57,7 +53,7 @@
     <div class="title">❌ App crashed while loading</div>
     <div id="fatalMsg"></div>
     <div class="hint">
-      Tip: If you use adblock, whitelist unpkg.com. If slots are enabled and CSG fails, use Pegs/None.
+      Tip: If you use adblock, whitelist unpkg.com. This app needs CDN modules.
     </div>
   </div>
 </div>
@@ -94,39 +90,22 @@
     <div class="row">
       <div>
         <label>Grid size (mm)</label>
-        <select id="grid">
-          <option value="25" selected>25 (1")</option>
-        </select>
+        <select id="grid"><option value="25" selected>25 (1")</option></select>
       </div>
       <div>
         <label>Snap to grid</label>
-        <select id="snap">
-          <option value="on" selected>On</option>
-          <option value="off">Off</option>
-        </select>
+        <select id="snap"><option value="on" selected>On</option><option value="off">Off</option></select>
       </div>
     </div>
 
     <div class="row">
-      <div>
-        <label>Width (mm)</label>
-        <input id="w" type="number" min="5" max="400" value="50">
-      </div>
-      <div>
-        <label>Depth (mm)</label>
-        <input id="d" type="number" min="5" max="400" value="50">
-      </div>
+      <div><label>Width (mm)</label><input id="w" type="number" min="5" max="400" value="50"></div>
+      <div><label>Depth (mm)</label><input id="d" type="number" min="5" max="400" value="50"></div>
     </div>
 
     <div class="row">
-      <div>
-        <label>Height (mm)</label>
-        <input id="h" type="number" min="1" max="400" value="35">
-      </div>
-      <div>
-        <label>Wall thickness (mm)</label>
-        <input id="wallT" type="number" min="4" max="20" value="8">
-      </div>
+      <div><label>Height (mm)</label><input id="h" type="number" min="1" max="400" value="35"></div>
+      <div><label>Wall thickness (mm)</label><input id="wallT" type="number" min="4" max="20" value="8"></div>
     </div>
 
     <details open>
@@ -153,10 +132,7 @@
       </div>
 
       <div class="row">
-        <div>
-          <label>Tolerance (mm)</label>
-          <input id="tol" type="number" min="0" max="1.0" step="0.05" value="0.25">
-        </div>
+        <div><label>Tolerance (mm)</label><input id="tol" type="number" min="0" max="1.0" step="0.05" value="0.25"></div>
         <div>
           <label>Connector size</label>
           <select id="connSize">
@@ -191,47 +167,21 @@
       </div>
 
       <div class="row">
-        <div>
-          <label>Inset from edge (mm)</label>
-          <input id="inset" type="number" min="0" max="10" step="0.1" value="1.0">
-        </div>
-        <div>
-          <label>Depth into piece (mm)</label>
-          <input id="slotDepth" type="number" min="2" max="20" step="0.1" value="6.0">
-        </div>
+        <div><label>Inset from edge (mm)</label><input id="inset" type="number" min="0" max="10" step="0.1" value="1.0"></div>
+        <div><label>Depth into piece (mm)</label><input id="slotDepth" type="number" min="2" max="20" step="0.1" value="6.0"></div>
       </div>
 
       <div class="row">
-        <div>
-          <label>Foot length (mm)</label>
-          <input id="footL" type="number" min="6" max="30" step="0.5" value="14">
-        </div>
-        <div>
-          <label>Foot height (mm)</label>
-          <input id="footH" type="number" min="2" max="12" step="0.5" value="6">
-        </div>
-      </div>
-
-      <div class="muted small">
-        Wall feet add a small base under the wall so the connectors have material to cut into.
-        Print feet flat on bed.
+        <div><label>Foot length (mm)</label><input id="footL" type="number" min="6" max="30" step="0.5" value="14"></div>
+        <div><label>Foot height (mm)</label><input id="footH" type="number" min="2" max="12" step="0.5" value="6"></div>
       </div>
     </details>
 
     <details>
       <summary>Tile options</summary>
       <div class="row" style="margin-top:8px">
-        <div>
-          <label>Tile thickness (mm)</label>
-          <input id="tileT" type="number" min="2" max="12" value="3">
-        </div>
-        <div>
-          <label>Emboss grid</label>
-          <select id="emboss">
-            <option value="off" selected>Off</option>
-            <option value="on">On</option>
-          </select>
-        </div>
+        <div><label>Tile thickness (mm)</label><input id="tileT" type="number" min="2" max="12" value="3"></div>
+        <div><label>Emboss grid</label><select id="emboss"><option value="off" selected>Off</option><option value="on">On</option></select></div>
       </div>
     </details>
 
@@ -243,562 +193,276 @@
 </div>
 
 <script type="module">
-import * as THREE from "https://unpkg.com/three@0.160.0/build/three.module.js";
-import { OrbitControls } from "https://unpkg.com/three@0.160.0/examples/jsm/controls/OrbitControls.js";
-import { STLExporter } from "https://unpkg.com/three@0.160.0/examples/jsm/exporters/STLExporter.js";
-import { mergeGeometries } from "https://unpkg.com/three@0.160.0/examples/jsm/utils/BufferGeometryUtils.js";
+  import * as THREE from "three";
+  import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+  import { STLExporter } from "three/addons/exporters/STLExporter.js";
+  import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 
-const status = document.getElementById("status");
-const log = (m) => status.textContent = m;
+  const status = document.getElementById("status");
+  const log = (m) => status.textContent = m;
 
-const fatal = document.getElementById("fatal");
-const fatalMsg = document.getElementById("fatalMsg");
-function showFatal(err){
-  const msg = (err?.stack || err?.message || String(err));
-  console.error(err);
-  fatalMsg.textContent = msg;
-  fatal.style.display = "block";
-  log("❌ Fatal error (see overlay)");
-}
-window.addEventListener("error", (e) => showFatal(e.error || e.message));
-window.addEventListener("unhandledrejection", (e) => showFatal(e.reason));
-
-let BUSY = false;
-function setBusy(on, message){
-  BUSY = on;
-  document.getElementById("gen").disabled = on;
-  document.getElementById("export").disabled = on;
-  if (message) log(message);
-}
-
-/* ========= CSG (slots) — NON-BLOCKING + TIMEOUT ========= */
-let Brush, Evaluator, SUBTRACTION;
-let CSG_OK = false;
-
-function withTimeout(promise, ms){
-  return Promise.race([
-    promise,
-    new Promise((_, reject) => setTimeout(() => reject(new Error("CSG load timeout")), ms))
-  ]);
-}
-
-async function loadCSGInBackground(){
-  try{
-    const mod = await withTimeout(
-      import("https://unpkg.com/three-bvh-csg@0.0.16/build/index.module.js"),
-      3000
-    );
-    Brush = mod.Brush;
-    Evaluator = mod.Evaluator;
-    SUBTRACTION = mod.SUBTRACTION;
-    CSG_OK = true;
-    log("✅ Ready (CSG loaded: slots enabled)");
-  }catch(e){
-    console.warn("CSG unavailable:", e);
-    CSG_OK = false;
-    log("✅ Ready (CSG unavailable: peg-only / no slots)");
+  const fatal = document.getElementById("fatal");
+  const fatalMsg = document.getElementById("fatalMsg");
+  function showFatal(err){
+    const msg = (err?.stack || err?.message || String(err));
+    console.error(err);
+    fatalMsg.textContent = msg;
+    fatal.style.display = "block";
+    log("❌ Fatal error (see overlay)");
   }
-}
+  window.addEventListener("error", (e) => showFatal(e.error || e.message));
+  window.addEventListener("unhandledrejection", (e) => showFatal(e.reason));
 
-/* ========= Scene ========= */
-const view = document.getElementById("view");
-const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x0b0d12);
+  log("JS started ✅"); // <-- if you still see "Loading…", script isn't running
 
-const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 5000);
-camera.position.set(120, 90, 120);
+  // --- Non-blocking CSG load (for slots) ---
+  let Brush, Evaluator, SUBTRACTION;
+  let CSG_OK = false;
 
-const renderer = new THREE.WebGLRenderer({ antialias:true });
-renderer.setPixelRatio(devicePixelRatio);
-view.appendChild(renderer.domElement);
-
-const controls = new OrbitControls(camera, renderer.domElement);
-controls.enableDamping = true;
-
-scene.add(new THREE.AmbientLight(0xffffff, 0.65));
-const dir = new THREE.DirectionalLight(0xffffff, 0.9);
-dir.position.set(120, 200, 80);
-scene.add(dir);
-
-let gridHelper = new THREE.GridHelper(500, 20, 0x2a3558, 0x222a40);
-gridHelper.position.y = -0.01;
-scene.add(gridHelper);
-
-const material = new THREE.MeshStandardMaterial({ metalness:0.05, roughness:0.8 });
-let currentMesh = null;
-
-const GRID = 25;
-const clamp = (n,a,b)=>Math.max(a,Math.min(b,n));
-const snapVal = (v, grid)=>Math.round(v/grid)*grid;
-
-function safeMerge(list){
-  const geos = list.filter(Boolean);
-  const merged = mergeGeometries(geos, false);
-  if (!merged) throw new Error("mergeGeometries returned null");
-  return merged;
-}
-
-function csgSubtract(baseGeo, cutters){
-  if (!CSG_OK || !cutters.length) return baseGeo;
-  const evalr = new Evaluator();
-  let result = new Brush(baseGeo);
-  for (const cutGeo of cutters){
-    result = evalr.evaluate(result, new Brush(cutGeo), SUBTRACTION);
+  function withTimeout(promise, ms){
+    return Promise.race([
+      promise,
+      new Promise((_, reject) => setTimeout(() => reject(new Error("CSG load timeout")), ms))
+    ]);
   }
-  const g = result.geometry;
-  g.computeVertexNormals();
-  return g;
-}
 
-function connectorProfile(sizeMode, tol){
-  let w = 12.0, h = 4.0;
-  if (sizeMode === "tight"){ w = 11.5; h = 3.8; }
-  if (sizeMode === "loose"){ w = 12.5; h = 4.2; }
-  return {
-    slotW: w + tol*2,
-    slotH: h + tol*2,
-    pegW: w - tol*1.5,
-    pegH: h - tol*1.5
-  };
-}
-
-function tileEdgeList(val){
-  if (val === "all") return ["n","e","s","w"];
-  if (val === "ns") return ["n","s"];
-  if (val === "ew") return ["e","w"];
-  return [val];
-}
-function wallFootList(val){
-  if (val === "both") return ["left","right"];
-  return [val];
-}
-
-/* ========= Tile builder ========= */
-function buildTile({w,d,thickness,emboss,grid,conn}){
-  const slab = new THREE.BoxGeometry(w, thickness, d);
-  slab.translate(0, thickness/2, 0);
-
-  const additions = [];
-  const cutters = [];
-
-  if (emboss === "on"){
-    const step = grid;
-    const lineW = 0.7, lineH = 0.6;
-    for (let x = -w/2 + step; x < w/2; x += step){
-      const g = new THREE.BoxGeometry(lineW, lineH, d*0.98);
-      g.translate(x, thickness + lineH/2, 0);
-      additions.push(g);
-    }
-    for (let z = -d/2 + step; z < d/2; z += step){
-      const g = new THREE.BoxGeometry(w*0.98, lineH, lineW);
-      g.translate(0, thickness + lineH/2, z);
-      additions.push(g);
+  async function loadCSGInBackground(){
+    try{
+      const mod = await withTimeout(
+        import("https://unpkg.com/three-bvh-csg@0.0.16/build/index.module.js"),
+        3000
+      );
+      Brush = mod.Brush;
+      Evaluator = mod.Evaluator;
+      SUBTRACTION = mod.SUBTRACTION;
+      CSG_OK = true;
+      log("✅ Ready (CSG loaded: slots enabled)");
+    }catch(e){
+      console.warn("CSG unavailable:", e);
+      CSG_OK = false;
+      log("✅ Ready (CSG unavailable: peg-only / no slots)");
     }
   }
 
-  if (conn.mode !== "none"){
-    const prof = connectorProfile(conn.sizeMode, conn.tol);
-    const edges = tileEdgeList(conn.tileEdges);
-    const y = thickness*0.5;
-    const slotH = Math.min(prof.slotH, thickness * 0.85);
+  // --- Scene ---
+  const view = document.getElementById("view");
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x0b0d12);
 
-    for (const e of edges){
-      if ((conn.mode === "slots" || conn.mode === "both") && CSG_OK){
-        const slot = new THREE.BoxGeometry(prof.slotW, slotH, conn.slotDepth);
-        if (e === "n") slot.translate(0, y, -d/2 + conn.inset + conn.slotDepth/2);
-        if (e === "s") slot.translate(0, y,  d/2 - conn.inset - conn.slotDepth/2);
-        if (e === "e"){ slot.rotateY(Math.PI/2); slot.translate( w/2 - conn.inset - conn.slotDepth/2, y, 0); }
-        if (e === "w"){ slot.rotateY(Math.PI/2); slot.translate(-w/2 + conn.inset + conn.slotDepth/2, y, 0); }
-        cutters.push(slot);
-      }
+  const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 5000);
+  camera.position.set(120, 90, 120);
 
-      if (conn.mode === "pegs" || conn.mode === "both"){
-        const pegDepth = conn.slotDepth * 0.7;
-        const peg = new THREE.BoxGeometry(prof.pegW, Math.min(prof.pegH, thickness*0.85), pegDepth);
-        if (e === "n") peg.translate(0, y, -d/2 - pegDepth/2 + 0.01);
-        if (e === "s") peg.translate(0, y,  d/2 + pegDepth/2 - 0.01);
-        if (e === "e"){ peg.rotateY(Math.PI/2); peg.translate( w/2 + pegDepth/2 - 0.01, y, 0); }
-        if (e === "w"){ peg.rotateY(Math.PI/2); peg.translate(-w/2 - pegDepth/2 + 0.01, y, 0); }
-        additions.push(peg);
-      }
-    }
-  }
+  const renderer = new THREE.WebGLRenderer({ antialias:true });
+  renderer.setPixelRatio(devicePixelRatio);
+  view.appendChild(renderer.domElement);
 
-  let geo = slab;
-  if (additions.length) geo = safeMerge([geo, ...additions]);
-  if (cutters.length) geo = csgSubtract(geo, cutters);
-  return geo;
-}
+  const controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true;
 
-/* ========= Foot connectors (x,z points) ========= */
-function applyFootConnectorsXZ(baseGeo, footPoints, footW, footH, conn){
-  if (conn.mode === "none") return baseGeo;
+  scene.add(new THREE.AmbientLight(0xffffff, 0.65));
+  const dir = new THREE.DirectionalLight(0xffffff, 0.9);
+  dir.position.set(120, 200, 80);
+  scene.add(dir);
 
-  const prof = connectorProfile(conn.sizeMode, conn.tol);
-  const cutters = [];
-  const adds = [];
-
-  const y = footH*0.5;
-  const zOut = (footW/2);
-
-  for (const p of footPoints){
-    const fx = p.x;
-    const fz = p.z;
-
-    if ((conn.mode === "slots" || conn.mode === "both") && CSG_OK){
-      const slot = new THREE.BoxGeometry(prof.slotW, Math.min(prof.slotH, footH*0.9), conn.slotDepth);
-      slot.translate(fx, y, fz + zOut - conn.inset - conn.slotDepth/2);
-      cutters.push(slot);
-    }
-
-    if (conn.mode === "pegs" || conn.mode === "both"){
-      const pegDepth = conn.slotDepth * 0.7;
-      const peg = new THREE.BoxGeometry(prof.pegW, Math.min(prof.pegH, footH*0.9), pegDepth);
-      peg.translate(fx, y, fz + zOut + pegDepth/2 - 0.01);
-      adds.push(peg);
-    }
-  }
-
-  let g = baseGeo;
-  if (adds.length) g = safeMerge([g, ...adds]);
-  if (cutters.length) g = csgSubtract(g, cutters);
-  return g;
-}
-
-/* ========= Walls ========= */
-function buildWallStraight({len, thick, height, feet, conn, apply}){
-  const wall = new THREE.BoxGeometry(len, height, thick);
-  wall.translate(0, feet.footH + height/2, 0);
-
-  const footL = feet.footL;
-  const footH = feet.footH;
-  const footW = thick + 4;
-
-  const xL = -len*0.25;
-  const xR =  len*0.25;
-
-  const footLeft = new THREE.BoxGeometry(footL, footH, footW);
-  footLeft.translate(xL, footH/2, 0);
-
-  const footRight = new THREE.BoxGeometry(footL, footH, footW);
-  footRight.translate(xR, footH/2, 0);
-
-  let baseGeo = safeMerge([wall, footLeft, footRight]);
-
-  if (apply){
-    const feetList = wallFootList(conn.wallFeet);
-    const pts = [];
-    if (feetList.includes("left"))  pts.push({x:xL, z:0});
-    if (feetList.includes("right")) pts.push({x:xR, z:0});
-    baseGeo = applyFootConnectorsXZ(baseGeo, pts, footW, footH, conn);
-  }
-  return baseGeo;
-}
-
-function buildWallCorner({len, thick, height, feet, conn, apply}){
-  const a = new THREE.BoxGeometry(len, height, thick);
-  a.translate(0, feet.footH + height/2, (len/2 - thick/2));
-  const b = new THREE.BoxGeometry(thick, height, len);
-  b.translate((len/2 - thick/2), feet.footH + height/2, 0);
-
-  const footL = feet.footL, footH = feet.footH, footW = thick + 4;
-
-  const x1 = -len*0.25, x2 = 0;
-  const zA = (len/2 - thick/2);
-  const xB = (len/2 - thick/2), zB = -len*0.25;
-
-  const f1 = new THREE.BoxGeometry(footL, footH, footW);
-  f1.translate(x1, footH/2, zA);
-
-  const f2 = new THREE.BoxGeometry(footL, footH, footW);
-  f2.translate(x2, footH/2, zA);
-
-  const f3 = new THREE.BoxGeometry(footL, footH, footW);
-  f3.translate(xB, footH/2, zB);
-
-  let baseGeo = safeMerge([a,b,f1,f2,f3]);
-
-  if (apply){
-    const pts = [];
-    const feetList = wallFootList(conn.wallFeet);
-    if (feetList.includes("left"))  pts.push({x:x1, z:zA});
-    if (feetList.includes("right")) pts.push({x:x2, z:zA});
-    if (conn.wallFeet === "both")   pts.push({x:xB, z:zB});
-    baseGeo = applyFootConnectorsXZ(baseGeo, pts, footW, footH, conn);
-  }
-  return baseGeo;
-}
-
-function buildDoorway({len, thick, height, feet, grid, conn, apply}){
-  const doorW = Math.max(18, grid*0.9);
-  const doorH = Math.max(24, height*0.75);
-
-  const sideW = (len - doorW)/2;
-
-  const left = new THREE.BoxGeometry(sideW, height, thick);
-  left.translate(-len/2 + sideW/2, feet.footH + height/2, 0);
-
-  const right = new THREE.BoxGeometry(sideW, height, thick);
-  right.translate(len/2 - sideW/2, feet.footH + height/2, 0);
-
-  const topH = Math.max(4, height - doorH);
-  const top = new THREE.BoxGeometry(doorW, topH, thick);
-  top.translate(0, feet.footH + doorH + topH/2, 0);
-
-  const footL = feet.footL, footH = feet.footH, footW = thick + 4;
-  const fxL = -len/2 + sideW*0.55;
-  const fxR =  len/2 - sideW*0.55;
-
-  const fL = new THREE.BoxGeometry(footL, footH, footW);
-  fL.translate(fxL, footH/2, 0);
-
-  const fR = new THREE.BoxGeometry(footL, footH, footW);
-  fR.translate(fxR, footH/2, 0);
-
-  let baseGeo = safeMerge([left,right,top,fL,fR]);
-
-  if (apply){
-    const feetList = wallFootList(conn.wallFeet);
-    const pts = [];
-    if (feetList.includes("left"))  pts.push({x:fxL, z:0});
-    if (feetList.includes("right")) pts.push({x:fxR, z:0});
-    baseGeo = applyFootConnectorsXZ(baseGeo, pts, footW, footH, conn);
-  }
-
-  return baseGeo;
-}
-
-/* ========= Scene helpers ========= */
-function setMesh(geometry){
-  if (currentMesh){
-    scene.remove(currentMesh);
-    currentMesh.geometry.dispose();
-  }
-  geometry.computeVertexNormals();
-  currentMesh = new THREE.Mesh(geometry, material);
-  scene.add(currentMesh);
-
-  const box = new THREE.Box3().setFromObject(currentMesh);
-  const size = new THREE.Vector3(); box.getSize(size);
-  const center = new THREE.Vector3(); box.getCenter(center);
-  currentMesh.position.sub(center);
-  currentMesh.position.y += size.y/2;
-
-  const maxDim = Math.max(size.x, size.y, size.z);
-  camera.position.set(maxDim*1.3, maxDim*1.0, maxDim*1.3);
-  controls.target.set(0, size.y*0.45, 0);
-  controls.update();
-}
-
-function resize(){
-  const r = view.getBoundingClientRect();
-  renderer.setSize(r.width, r.height);
-  camera.aspect = r.width / r.height;
-  camera.updateProjectionMatrix();
-}
-window.addEventListener("resize", resize);
-
-function regenerateGrid(){
-  scene.remove(gridHelper);
-  gridHelper.geometry.dispose();
-  gridHelper = new THREE.GridHelper(500, Math.floor(500 / GRID), 0x2a3558, 0x222a40);
+  let gridHelper = new THREE.GridHelper(500, 20, 0x2a3558, 0x222a40);
   gridHelper.position.y = -0.01;
   scene.add(gridHelper);
-}
 
-/* ========= Presets & generate ========= */
-function applyPreset(){
-  const p = document.getElementById("preset").value;
-  const set = (id,val)=>document.getElementById(id).value = String(val);
+  const material = new THREE.MeshStandardMaterial({ metalness:0.05, roughness:0.8 });
+  let currentMesh = null;
 
-  if (p === "tile_1"){
-    document.getElementById("model").value = "tile";
-    set("w", GRID); set("d", GRID); set("tileT", 3);
-    document.getElementById("connMode").value = "slots";
-    document.getElementById("applyTo").value = "tile";
-  } else if (p === "tile_2"){
-    document.getElementById("model").value = "tile";
-    set("w", GRID*2); set("d", GRID*2); set("tileT", 3);
-    document.getElementById("connMode").value = "slots";
-    document.getElementById("applyTo").value = "tile";
-  } else if (p === "wall_2"){
-    document.getElementById("model").value = "wall_straight";
-    set("w", GRID*2); set("d", GRID*2); set("h", 35); set("wallT", 8);
-    document.getElementById("connMode").value = "slots";
-    document.getElementById("applyTo").value = "wall";
-  } else if (p === "wall_corner"){
-    document.getElementById("model").value = "wall_corner";
-    set("w", GRID*2); set("d", GRID*2); set("h", 35); set("wallT", 8);
-    document.getElementById("connMode").value = "slots";
-    document.getElementById("applyTo").value = "wall";
-  } else if (p === "doorway"){
-    document.getElementById("model").value = "doorway";
-    set("w", GRID*2); set("d", GRID*2); set("h", 35); set("wallT", 8);
-    document.getElementById("connMode").value = "slots";
-    document.getElementById("applyTo").value = "wall";
-  }
-}
+  const GRID = 25;
+  const clamp = (n,a,b)=>Math.max(a,Math.min(b,n));
+  const snapVal = (v, grid)=>Math.round(v/grid)*grid;
 
-function generate(){
-  const snap = document.getElementById("snap").value === "on";
-  const model = document.getElementById("model").value;
-
-  let w = Math.max(1, Number(document.getElementById("w").value));
-  let d = Math.max(1, Number(document.getElementById("d").value));
-  let h = Math.max(1, Number(document.getElementById("h").value));
-
-  if (snap){
-    w = snapVal(w, GRID);
-    d = snapVal(d, GRID);
+  function safeMerge(list){
+    const geos = list.filter(Boolean);
+    const merged = mergeGeometries(geos, false);
+    if (!merged) throw new Error("mergeGeometries returned null");
+    return merged;
   }
 
-  regenerateGrid();
-
-  const tileT = clamp(Number(document.getElementById("tileT").value), 2, 12);
-  const wallT = clamp(Number(document.getElementById("wallT").value), 4, 20);
-
-  const applyTo = document.getElementById("applyTo").value;
-  const conn = {
-    mode: document.getElementById("connMode").value,
-    tol: clamp(Number(document.getElementById("tol").value), 0, 1.0),
-    sizeMode: document.getElementById("connSize").value,
-    inset: clamp(Number(document.getElementById("inset").value), 0, 10),
-    slotDepth: clamp(Number(document.getElementById("slotDepth").value), 2, 20),
-    tileEdges: document.getElementById("tileEdges").value,
-    wallFeet: document.getElementById("wallFeet").value
-  };
-
-  const feet = {
-    footL: clamp(Number(document.getElementById("footL").value), 6, 30),
-    footH: clamp(Number(document.getElementById("footH").value), 2, 12)
-  };
-
-  let geo;
-
-  if (model === "tile"){
-    const emboss = document.getElementById("emboss").value;
-    geo = buildTile({
-      w, d, thickness: tileT, emboss, grid: GRID,
-      conn: (applyTo === "tile" || applyTo === "both") ? conn : { mode:"none" }
-    });
-  } else if (model === "wall_straight"){
-    geo = buildWallStraight({
-      len: w, thick: wallT, height: Math.max(10, h), feet, conn,
-      apply: (applyTo === "wall" || applyTo === "both") && conn.mode !== "none"
-    });
-  } else if (model === "wall_corner"){
-    geo = buildWallCorner({
-      len: w, thick: wallT, height: Math.max(10, h), feet, conn,
-      apply: (applyTo === "wall" || applyTo === "both") && conn.mode !== "none"
-    });
-  } else if (model === "doorway"){
-    geo = buildDoorway({
-      len: w, thick: wallT, height: Math.max(10, h), feet, grid: GRID, conn,
-      apply: (applyTo === "wall" || applyTo === "both") && conn.mode !== "none"
-    });
-  } else {
-    geo = new THREE.BoxGeometry(20,20,20);
-  }
-
-  setMesh(geo);
-}
-
-/* ========= Export ========= */
-function exportSTL(){
-  if (!currentMesh) return alert("Generate a model first.");
-
-  const model = document.getElementById("model").value;
-  const w = document.getElementById("w").value;
-  const d = document.getElementById("d").value;
-  const h = document.getElementById("h").value;
-  const tol = document.getElementById("tol").value;
-  const mode = document.getElementById("connMode").value;
-
-  const exporter = new STLExporter();
-  const stlString = exporter.parse(currentMesh, { binary:false });
-  const blob = new Blob([stlString], { type:"model/stl" });
-
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = `Dungeon25_${model}_${w}x${d}x${h}_tol${tol}_${mode}.stl`;
-  a.click();
-  URL.revokeObjectURL(a.href);
-}
-
-/* ========= Autosave ========= */
-const SAVE_KEYS = ["preset","model","snap","w","d","h","wallT","applyTo","connMode","tol","connSize","tileEdges","wallFeet","inset","slotDepth","footL","footH","tileT","emboss"];
-function saveSettings(){
-  const data = {};
-  for (const k of SAVE_KEYS){
-    const el = document.getElementById(k);
-    if (el) data[k] = el.value;
-  }
-  localStorage.setItem("dnd_terrain_settings", JSON.stringify(data));
-}
-function loadSettings(){
-  try{
-    const data = JSON.parse(localStorage.getItem("dnd_terrain_settings") || "{}");
-    for (const k of SAVE_KEYS){
-      const el = document.getElementById(k);
-      if (el && data[k] != null) el.value = data[k];
+  function csgSubtract(baseGeo, cutters){
+    if (!CSG_OK || !cutters.length) return baseGeo;
+    const evalr = new Evaluator();
+    let result = new Brush(baseGeo);
+    for (const cutGeo of cutters){
+      result = evalr.evaluate(result, new Brush(cutGeo), SUBTRACTION);
     }
-  }catch{}
-}
-for (const k of SAVE_KEYS){
-  const el = document.getElementById(k);
-  if (el) el.addEventListener("change", saveSettings);
-}
-loadSettings();
-
-/* ========= Buttons ========= */
-async function runGenerateSafely(){
-  if (BUSY) return;
-  setBusy(true, "⏳ Generating…");
-  try{
-    generate();
-    log("READY ✅ Generated");
-  }catch(e){
-    log("❌ ERROR:\n" + (e.stack || e.message || e));
-    console.error(e);
-  }finally{
-    setBusy(false);
+    const g = result.geometry;
+    g.computeVertexNormals();
+    return g;
   }
-}
 
-document.getElementById("preset").addEventListener("change", () => { applyPreset(); runGenerateSafely(); });
-document.getElementById("gen").addEventListener("click", runGenerateSafely);
-document.getElementById("export").addEventListener("click", () => {
-  try{ exportSTL(); }
-  catch(e){ log("❌ EXPORT ERROR:\n"+(e.stack||e.message||e)); console.error(e); }
-});
+  function connectorProfile(sizeMode, tol){
+    let w = 12.0, h = 4.0;
+    if (sizeMode === "tight"){ w = 11.5; h = 3.8; }
+    if (sizeMode === "loose"){ w = 12.5; h = 4.2; }
+    return {
+      slotW: w + tol*2,
+      slotH: h + tol*2,
+      pegW: w - tol*1.5,
+      pegH: h - tol*1.5
+    };
+  }
 
-/* ========= Init ========= */
-function init(){
-  const r = view.getBoundingClientRect();
-  renderer.setSize(r.width, r.height);
-  camera.aspect = r.width / r.height;
-  camera.updateProjectionMatrix();
+  function tileEdgeList(val){
+    if (val === "all") return ["n","e","s","w"];
+    if (val === "ns") return ["n","s"];
+    if (val === "ew") return ["e","w"];
+    return [val];
+  }
+  function wallFootList(val){
+    if (val === "both") return ["left","right"];
+    return [val];
+  }
 
-  applyPreset();
-  runGenerateSafely();
+  function buildTile({w,d,thickness,emboss,grid,conn}){
+    const slab = new THREE.BoxGeometry(w, thickness, d);
+    slab.translate(0, thickness/2, 0);
 
-  // start CSG load AFTER UI is alive
-  loadCSGInBackground();
-}
-window.addEventListener("resize", () => {
-  const r = view.getBoundingClientRect();
-  renderer.setSize(r.width, r.height);
-  camera.aspect = r.width / r.height;
-  camera.updateProjectionMatrix();
-});
+    const additions = [];
+    const cutters = [];
 
-init();
+    if (emboss === "on"){
+      const step = grid;
+      const lineW = 0.7, lineH = 0.6;
+      for (let x = -w/2 + step; x < w/2; x += step){
+        const g = new THREE.BoxGeometry(lineW, lineH, d*0.98);
+        g.translate(x, thickness + lineH/2, 0);
+        additions.push(g);
+      }
+      for (let z = -d/2 + step; z < d/2; z += step){
+        const g = new THREE.BoxGeometry(w*0.98, lineH, lineW);
+        g.translate(0, thickness + lineH/2, z);
+        additions.push(g);
+      }
+    }
 
-(function animate(){
-  requestAnimationFrame(animate);
-  controls.update();
-  renderer.render(scene, camera);
-})();
+    if (conn.mode !== "none"){
+      const prof = connectorProfile(conn.sizeMode, conn.tol);
+      const edges = tileEdgeList(conn.tileEdges);
+      const y = thickness*0.5;
+      const slotH = Math.min(prof.slotH, thickness * 0.85);
+
+      for (const e of edges){
+        if ((conn.mode === "slots" || conn.mode === "both") && CSG_OK){
+          const slot = new THREE.BoxGeometry(prof.slotW, slotH, conn.slotDepth);
+          if (e === "n") slot.translate(0, y, -d/2 + conn.inset + conn.slotDepth/2);
+          if (e === "s") slot.translate(0, y,  d/2 - conn.inset - conn.slotDepth/2);
+          if (e === "e"){ slot.rotateY(Math.PI/2); slot.translate( w/2 - conn.inset - conn.slotDepth/2, y, 0); }
+          if (e === "w"){ slot.rotateY(Math.PI/2); slot.translate(-w/2 + conn.inset + conn.slotDepth/2, y, 0); }
+          cutters.push(slot);
+        }
+
+        if (conn.mode === "pegs" || conn.mode === "both"){
+          const pegDepth = conn.slotDepth * 0.7;
+          const peg = new THREE.BoxGeometry(prof.pegW, Math.min(prof.pegH, thickness*0.85), pegDepth);
+          if (e === "n") peg.translate(0, y, -d/2 - pegDepth/2 + 0.01);
+          if (e === "s") peg.translate(0, y,  d/2 + pegDepth/2 - 0.01);
+          if (e === "e"){ peg.rotateY(Math.PI/2); peg.translate( w/2 + pegDepth/2 - 0.01, y, 0); }
+          if (e === "w"){ peg.rotateY(Math.PI/2); peg.translate(-w/2 - pegDepth/2 + 0.01, y, 0); }
+          additions.push(peg);
+        }
+      }
+    }
+
+    let geo = slab;
+    if (additions.length) geo = safeMerge([geo, ...additions]);
+    if (cutters.length) geo = csgSubtract(geo, cutters);
+    return geo;
+  }
+
+  function setMesh(geometry){
+    if (currentMesh){
+      scene.remove(currentMesh);
+      currentMesh.geometry.dispose();
+    }
+    geometry.computeVertexNormals();
+    currentMesh = new THREE.Mesh(geometry, material);
+    scene.add(currentMesh);
+
+    const box = new THREE.Box3().setFromObject(currentMesh);
+    const size = new THREE.Vector3(); box.getSize(size);
+    const center = new THREE.Vector3(); box.getCenter(center);
+    currentMesh.position.sub(center);
+    currentMesh.position.y += size.y/2;
+
+    const maxDim = Math.max(size.x, size.y, size.z);
+    camera.position.set(maxDim*1.3, maxDim*1.0, maxDim*1.3);
+    controls.target.set(0, size.y*0.45, 0);
+    controls.update();
+  }
+
+  function resize(){
+    const r = view.getBoundingClientRect();
+    renderer.setSize(r.width, r.height);
+    camera.aspect = r.width / r.height;
+    camera.updateProjectionMatrix();
+  }
+  window.addEventListener("resize", resize);
+
+  function generate(){
+    const snap = document.getElementById("snap").value === "on";
+    const model = document.getElementById("model").value;
+
+    let w = Math.max(1, Number(document.getElementById("w").value));
+    let d = Math.max(1, Number(document.getElementById("d").value));
+
+    if (snap){ w = snapVal(w, GRID); d = snapVal(d, GRID); }
+
+    const tileT = clamp(Number(document.getElementById("tileT").value), 2, 12);
+
+    const applyTo = document.getElementById("applyTo").value;
+    const conn = {
+      mode: document.getElementById("connMode").value,
+      tol: clamp(Number(document.getElementById("tol").value), 0, 1.0),
+      sizeMode: document.getElementById("connSize").value,
+      inset: clamp(Number(document.getElementById("inset").value), 0, 10),
+      slotDepth: clamp(Number(document.getElementById("slotDepth").value), 2, 20),
+      tileEdges: document.getElementById("tileEdges").value
+    };
+
+    let geo;
+    if (model === "tile"){
+      const emboss = document.getElementById("emboss").value;
+      geo = buildTile({
+        w, d, thickness: tileT, emboss, grid: GRID,
+        conn: (applyTo === "tile" || applyTo === "both") ? conn : { mode:"none" }
+      });
+    } else {
+      geo = new THREE.BoxGeometry(30,30,30);
+    }
+
+    setMesh(geo);
+    log("READY ✅ Generated");
+  }
+
+  function exportSTL(){
+    if (!currentMesh) return alert("Generate a model first.");
+    const exporter = new STLExporter();
+    const stlString = exporter.parse(currentMesh, { binary:false });
+    const blob = new Blob([stlString], { type:"model/stl" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `dnd_model_${document.getElementById("model").value}.stl`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+
+  document.getElementById("gen").addEventListener("click", () => { try{ generate(); } catch(e){ showFatal(e); } });
+  document.getElementById("export").addEventListener("click", () => { try{ exportSTL(); } catch(e){ showFatal(e); } });
+
+  // Init
+  resize();
+  generate();
+  loadCSGInBackground(); // ✅ start after UI is alive
+
+  (function animate(){
+    requestAnimationFrame(animate);
+    controls.update();
+    renderer.render(scene, camera);
+  })();
 </script>
 </body>
 </html>
